@@ -7,27 +7,38 @@ class YoutubeMusicAccessTokenAuthHandlerIE(YoutubeIE, plugin_name='yt_access_tok
     auth: str = ""
 
     def _inject_auth_header(self, request: Request):
-        # These are only require for cookies and interfere with OAuth2
+        """
+        Inject the authentication header into the request.
+        """
+        # Remove conflicting headers
         request.headers.pop('X-Goog-PageId', None)
         request.headers.pop('X-Goog-AuthUser', None)
-        # In case user tries to use cookies at the same time
+
+        # Warn if cookies and OAuth2 are both being used
         if 'Authorization' in request.headers:
             self.report_warning(
-                'Youtube cookies have been provided, but OAuth2 is being used.'
-                ' If you encounter problems, stop providing Youtube cookies to yt-dlp.')
+                'Youtube cookies have been provided, but OAuth2 is being used. '
+                'If you encounter problems, stop providing Youtube cookies to yt-dlp.')
             request.headers.pop('Authorization', None)
             request.headers.pop('X-Origin', None)
 
-        # Not even used anymore, should be removed from core...
+        # Remove unused headers
         request.headers.pop('X-Youtube-Identity-Token', None)
 
-        authorization_header = {'Authorization': f'{self.auth}'}
+        # Inject the authorization header
+        authorization_header = {'Authorization': f'Bearer {self.auth}'}
         request.headers.update(authorization_header)
 
     def _perform_login(self, username, password):
+        """
+        Perform login by setting the auth token.
+        """
         self.auth = username
 
     def _create_request(self, *args, **kwargs):
+        """
+        Create a request and inject authentication header.
+        """
         request = super()._create_request(*args, **kwargs)
         self._inject_auth_header(request)
         return request
