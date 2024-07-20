@@ -1,17 +1,33 @@
-# ⚠ Don't use relative imports
-from yt_dlp.extractor.common import InfoExtractor
-
-# ℹ️ If you need to import from another plugin
-# from yt_dlp_plugins.extractor.example import ExamplePluginIE
-
-# ℹ️ Instructions on making extractors can be found at:
-# 🔗 https://github.com/yt-dlp/yt-dlp/blob/master/CONTRIBUTING.md#adding-support-for-a-new-site
-
+from yt_dlp.extractor.youtube import YoutubeIE
+from yt_dlp.networking import Request
 
 # ⚠ The class name must end in "IE"
-class SamplePluginIE(InfoExtractor):
-    _WORKING = False
-    _VALID_URL = r'^sampleplugin:'
+class YoutubeMusicAccessTokenAuthHandlerIE(YoutubeIE, plugin_name='yt_access_token'):
+    _NETRC_MACHINE = 'youtube'
+    auth: str = ""
 
-    def _real_extract(self, url):
-        self.to_screen('URL "%s" successfully captured' % url)
+    def _inject_auth_header(self, request: Request):
+        # These are only require for cookies and interfere with OAuth2
+        request.headers.pop('X-Goog-PageId', None)
+        request.headers.pop('X-Goog-AuthUser', None)
+        # In case user tries to use cookies at the same time
+        if 'Authorization' in request.headers:
+            self.report_warning(
+                'Youtube cookies have been provided, but OAuth2 is being used.'
+                ' If you encounter problems, stop providing Youtube cookies to yt-dlp.')
+            request.headers.pop('Authorization', None)
+            request.headers.pop('X-Origin', None)
+
+        # Not even used anymore, should be removed from core...
+        request.headers.pop('X-Youtube-Identity-Token', None)
+
+        authorization_header = {'Authorization': f'{self.auth}'}
+        request.headers.update(authorization_header)
+
+    def _perform_login(self, username, password):
+        self.auth = username
+
+    def _create_request(self, *args, **kwargs):
+        request = super()._create_request(*args, **kwargs)
+        self._inject_auth_header(request)
+        return request
